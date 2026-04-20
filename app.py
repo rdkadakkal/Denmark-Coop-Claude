@@ -12,7 +12,7 @@ import math
 import numpy as np
 import pandas as pd
 import streamlit as st
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from zoneinfo import ZoneInfo
 
 st.set_page_config(page_title="Terminal Data Quality Report", layout="wide")
@@ -43,6 +43,15 @@ TDQ_COL_ORDER = [
 
 DEFAULT_ORIGINS = ["Brondby", "Hasselager", "Lineage", "Odense", "Hilton"]
 CET_TZ = ZoneInfo("Europe/Copenhagen")
+
+# ----------------------------
+# Dynamic default dates
+# ----------------------------
+# End Date = yesterday
+# Start Date = Monday of last week
+_today = date.today()
+_default_end = _today - timedelta(days=1)                          # yesterday
+_default_start = _today - timedelta(days=_today.weekday() + 7)     # last week's Monday
 
 # ----------------------------
 # Helpers
@@ -177,9 +186,9 @@ origins = st.multiselect(
 
 col1, col2 = st.columns(2)
 with col1:
-    start_date = st.date_input("Start Date (CET)", value=date(2024, 9, 29))
+    start_date = st.date_input("Start Date (CET)", value=_default_start)
 with col2:
-    end_date = st.date_input("End Date (CET)", value=date(2024, 10, 6))
+    end_date = st.date_input("End Date (CET)", value=_default_end)
 
 if end_date < start_date:
     st.error("End Date must be on or after Start Date.")
@@ -313,8 +322,7 @@ if run:
 
         # ── Terminal Data Quality sheet ──
 
-        # FIX 1: Write header_table WITHOUT DataFrame column headers
-        #         so "Carrier / All" isn't duplicated on the next row.
+        # Write header_table WITHOUT DataFrame column headers
         header_table.to_excel(
             writer, index=False, header=False,
             sheet_name=tdq_sheet, startrow=0,
@@ -330,29 +338,33 @@ if run:
 
         # Style header summary table (rows 0-2)
         bold_fmt = wb.add_format({"bold": True, "bg_color": "#E0E0E0", "border": 1})
-        val_fmt = wb.add_format({"border": 1})
+        val_fmt = wb.add_format({"border": 1, "align": "center"})
         for i in range(len(header_table)):
             ws_tdq.write(i, 0, header_table.iloc[i, 0], bold_fmt)
             ws_tdq.write(i, 1, header_table.iloc[i, 1], val_fmt)
 
-        # Style TDQ headers (bold + border)
+        # TDQ header row: bold + border + centered
+        header_fmt_centered = wb.add_format({
+            "bold": True, "text_wrap": True, "valign": "top",
+            "border": 1, "align": "center",
+        })
         for col_idx, col_name in enumerate(tdq_df.columns):
-            ws_tdq.write(tdq_start_row, col_idx, col_name, header_format_default)
+            ws_tdq.write(tdq_start_row, col_idx, col_name, header_fmt_centered)
 
-        # FIX 2 & 3: Write data cells with borders + rounded percentages
-        border_fmt = wb.add_format({"border": 1})
-        pct_fmt = wb.add_format({"num_format": "0%", "border": 1})
+        # Data cell formats: border + centered, with percentage variant
+        border_center_fmt = wb.add_format({"border": 1, "align": "center"})
+        pct_center_fmt = wb.add_format({"num_format": "0%", "border": 1, "align": "center"})
 
         pct_cols = {"Delivery Precision", "Registration Rate"}
 
         for row_i in range(len(tdq_df)):
-            excel_row = tdq_start_row + 1 + row_i  # +1 for header row
+            excel_row = tdq_start_row + 1 + row_i
             for col_i, col_name in enumerate(tdq_df.columns):
                 val = tdq_df.iloc[row_i, col_i]
                 if col_name in pct_cols:
-                    ws_tdq.write(excel_row, col_i, val, pct_fmt)
+                    ws_tdq.write(excel_row, col_i, val, pct_center_fmt)
                 else:
-                    ws_tdq.write(excel_row, col_i, val, border_fmt)
+                    ws_tdq.write(excel_row, col_i, val, border_center_fmt)
 
         # Column widths for TDQ sheet
         for i, name in enumerate(tdq_df.columns):
