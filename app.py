@@ -41,7 +41,7 @@ TDQ_COL_ORDER = [
     "Delayed Deliveries",
 ]
 
-DEFAULT_ORIGINS = ["Brondby", "Hasselager", "Lineage", "Odense", "Hilton"]
+DEFAULT_ORIGINS = ["Brondby", "Hasselager", "Lineage", "Odense", "Hilton", "DF HUB Brondby"]
 CET_TZ = ZoneInfo("Europe/Copenhagen")
 
 # ----------------------------
@@ -120,6 +120,8 @@ def normalize_origin(x: str) -> str:
     s_lower = s.lower()
     s_lower = s_lower.replace("br√∏ndby", "brondby").replace("brøndby", "brondby")
     s_lower = re.sub(r"\s+dc\b", "", s_lower)
+    if "df hub" in s_lower and "brondby" in s_lower:
+        return "DF HUB Brondby"
     if "brondby" in s_lower:
         return "Brondby"
     if "hasselager" in s_lower:
